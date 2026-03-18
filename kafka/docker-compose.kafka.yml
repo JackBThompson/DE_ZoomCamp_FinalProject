@@ -1,0 +1,22 @@
+##Objective: Spins up Kafka broker and Zookeeper locally so you can test the streaming layer without any cloud infrastructure.##
+
+# Service: zookeeper
+#   Image: confluentinc/cp-zookeeper
+#   Set env: ZOOKEEPER_CLIENT_PORT=2181
+#   Expose port 2181
+
+# Service: kafka broker
+#   Image: confluentinc/cp-kafka
+#   Depends on: zookeeper
+#   Set env:
+#     KAFKA_BROKER_ID=1
+#     KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
+#     KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092
+#     KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+#   Expose port 9092
+
+# Service: kafka-ui (optional but useful for debugging)
+#   Image: provectuslabs/kafka-ui
+#   Depends on: kafka
+#   Set env: KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
+#   Expose port 8090

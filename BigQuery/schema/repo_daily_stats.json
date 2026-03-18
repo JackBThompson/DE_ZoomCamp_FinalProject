@@ -1,0 +1,58 @@
+##Objective: Defines the explicit BigQuery table schema so tables can be created programmatically and schema is version controlled.##
+
+# JSON array defining each column in the repo_daily_stats table
+
+# Field: id
+#   type: INTEGER
+#   mode: REQUIRED
+#   description: Unique GitHub repository ID
+
+# Field: name
+#   type: STRING
+#   mode: REQUIRED
+#   description: Repository name
+
+# Field: owner_login
+#   type: STRING
+#   mode: NULLABLE
+#   description: GitHub username of the repository owner
+
+# Field: language
+#   type: STRING
+#   mode: NULLABLE
+#   description: Primary programming language of the repository
+
+# Field: stars_count
+#   type: INTEGER
+#   mode: NULLABLE
+#   description: Total number of stars at time of ingestion
+
+# Field: forks_count
+#   type: INTEGER
+#   mode: NULLABLE
+#   description: Total number of forks at time of ingestion
+
+# Field: open_issues_count
+#   type: INTEGER
+#   mode: NULLABLE
+#   description: Number of open issues at time of ingestion
+
+# Field: license_name
+#   type: STRING
+#   mode: NULLABLE
+#   description: Name of the repository license
+
+# Field: created_at
+#   type: TIMESTAMP
+#   mode: NULLABLE
+#   description: When the repository was created on GitHub
+
+# Field: updated_at
+#   type: TIMESTAMP
+#   mode: NULLABLE
+#   description: When the repository was last updated on GitHub
+
+# Field: ingestion_date
+#   type: DATE
+#   mode: REQUIRED
+#   description: Date this record was ingested — used as partition column

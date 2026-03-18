@@ -1,0 +1,23 @@
+# Service: postgres (Airflow metadata database)
+#   Image: postgres:15
+#   Expose port 5432
+
+# Service: airflow-webserver
+#   Build from Dockerfile.airflow
+#   Mount ./airflow/dags into container
+#   Set env vars: AIRFLOW__CORE__EXECUTOR, database connection string
+#   Expose port 8080
+
+# Service: airflow-scheduler
+#   Same image as webserver
+#   Command: airflow scheduler
+
+# Service: spark-master
+#   Image: bitnami/spark
+#   Mount ./spark into container
+#   Expose port 8081
+
+# Service: minio (local GCS substitute)
+#   Image: minio/minio
+#   Create buckets: raw, processed
+#   Expose port 9000

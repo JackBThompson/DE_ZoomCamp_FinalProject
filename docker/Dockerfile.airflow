@@ -1,0 +1,11 @@
+# FROM apache/airflow:2.9.0
+
+# Install Python packages:
+#   apache-airflow-providers-google (GCS, BigQuery operators)
+#   apache-airflow-providers-apache-spark
+#   requests (GitHub API calls)
+#   pytest (for running tests inside container)
+
+# Copy requirements.txt and run pip install
+
+# Set AIRFLOW_HOME env var
