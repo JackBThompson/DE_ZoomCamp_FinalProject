@@ -1,23 +1,66 @@
-# Service: postgres (Airflow metadata database)
-#   Image: postgres:15
-#   Expose port 5432
+version: '3.8'
 
-# Service: airflow-webserver
-#   Build from Dockerfile.airflow
-#   Mount ./airflow/dags into container
-#   Set env vars: AIRFLOW__CORE__EXECUTOR, database connection string
-#   Expose port 8080
+x-airflow-common: &airflow-common
+  build:
+    context: ..
+    dockerfile: docker/dockerfile.airflow
+  environment:
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    AIRFLOW__CORE__FERNET_KEY: ''
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    GOOGLE_APPLICATION_CREDENTIALS: /opt/airflow/gcp-key.json
+    GCP_PROJECT_ID: ${GCP_PROJECT_ID}
+    GCS_BUCKET: ${GCS_BUCKET}
+    BIGQUERY_DATASET: ${BIGQUERY_DATASET}
+  volumes:
+    - ./airflow/dags:/opt/airflow/dags
+    - ./gcp-key.json:/opt/airflow/gcp-key.json
+    - airflow-logs:/opt/airflow/logs
+  depends_on:
+    postgres:
+      condition: service_healthy
 
-# Service: airflow-scheduler
-#   Same image as webserver
-#   Command: airflow scheduler
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 5s
+      retries: 5
 
-# Service: spark-master
-#   Image: bitnami/spark
-#   Mount ./spark into container
-#   Expose port 8081
+  airflow-init:
+    <<: *airflow-common
+    command: >
+      bash -c "airflow db init &&
+               airflow users create
+               --username admin
+               --firstname Jack
+               --lastname Thompson
+               --role Admin
+               --email jack@example.com
+               --password admin"
+    restart: on-failure
 
-# Service: minio (local GCS substitute)
-#   Image: minio/minio
-#   Create buckets: raw, processed
-#   Expose port 9000
+  airflow-webserver:
+    <<: *airflow-common
+    command: webserver
+    ports:
+      - "8080:8080"
+    restart: always
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    restart: always
+
+volumes:
+  postgres-db:
+  airflow-logs:
