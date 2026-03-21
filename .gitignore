@@ -2,10 +2,12 @@
 
 # Environment and secrets
 .env
-*.json              # service account keys
+*.json
 *.pem
+*-key.json
+gcp-key.json
 
-# Data files (never commit raw or processed data)
+# Data files
 data/raw/
 data/processed/
 *.parquet
@@ -18,10 +20,11 @@ __pycache__/
 .venv/
 venv/
 
-# Terraform state (contains sensitive resource info)
+# Terraform state
 *.tfstate
 *.tfstate.backup
 .terraform/
+.terraform.lock.hcl
 
 # Airflow logs
 airflow/logs/

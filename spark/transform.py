@@ -2,6 +2,10 @@
 
 # Import PySpark, BigQuery connector, sys
 
+import PySpark
+import BigQuery
+import sys
+
 # Read execution_date from command line args
 
 # Read raw JSON from GCS path: gs://bucket/raw/github/{execution_date}/repos.json
@@ -11,6 +15,8 @@
 #   Extract owner.login -> owner_login
 #   Extract license.name -> license_name
 #   Explode topics array into separate rows
+
+
 
 # Clean data:
 #   Cast stars, forks, open_issues to integers

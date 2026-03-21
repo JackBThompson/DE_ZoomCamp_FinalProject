@@ -1,28 +1,26 @@
-# GitHub Repository Analytics Pipeline
+# NBA Analytics Pipeline
 
 ## Problem Description
 
-Engineering teams and open source maintainers have no easy way to track
-how repository popularity, language trends, and community engagement
-change over time across GitHub. This pipeline solves that by:
+NBA fans, analysts, and fantasy sports players have no easy way to track
+how team performance, player stats, and game trends change over time
+across a full season. This pipeline solves that by:
 
-- Ingesting GitHub repository data daily via the REST API
-- Tracking star growth, fork counts, and issue trends over time
+- Ingesting NBA game and player data daily via the nba_api library
+- Tracking points, rebounds, assists, shooting efficiency, and plus/minus over time
 - Making the data queryable in BigQuery and visual in Looker Studio
 
 This project demonstrates a production-grade data engineering pipeline
-handling real-world challenges: API pagination, nested JSON, schema drift,
-incremental loading, and cost-efficient data warehousing.
+handling real-world challenges: incremental daily loads, nested data
+structures, deduplication, and cost-efficient data warehousing.
 
 ---
 
 ## Architecture
 
-GitHub API → Airflow (orchestration) → GCS (raw storage)
-         → Spark (transformation) → BigQuery (warehouse)
-         → Looker Studio (dashboard)
-
-Kafka stream layer runs in parallel for real-time repo event ingestion.
+NBA API → Airflow (orchestration) → GCS (raw storage)
+       → Spark (transformation) → BigQuery (warehouse)
+       → Looker Studio (dashboard)
 
 ---
 
@@ -36,7 +34,6 @@ Kafka stream layer runs in parallel for real-time repo event ingestion.
 | Storage | GCS |
 | Processing | PySpark |
 | Warehouse | BigQuery |
-| Streaming | Kafka |
 | Dashboard | Looker Studio |
 
 ---
@@ -49,49 +46,48 @@ Install these before starting:
 - Docker + Docker Compose
 - Python 3.10+
 - A GCP account with billing enabled
-- A GitHub personal access token
+
+No API key required — nba_api is a free library with no authentication needed.
 
 ---
 
 ## Setup Instructions
 
 ### 1. Clone the repo
-git clone https://github.com/yourusername/github-pipeline.git
-cd github-pipeline
+git clone https://github.com/JackBThompson/DE_ZoomCamp_FinalProject.git
+cd DE_ZoomCamp_FinalProject
 
-### 2. Set environment variables
+### 2. Install dependencies
+pip install -r requirements.txt
+
+### 3. Set environment variables
 cp .env.example .env
 # Edit .env and fill in:
-#   GITHUB_TOKEN=your_token_here
 #   GCP_PROJECT_ID=your_project_id
 #   GCS_BUCKET=your_bucket_name
 
-### 3. Authenticate with GCP
+### 4. Authenticate with GCP
 gcloud auth login
 gcloud auth application-default login
 gcloud config set project YOUR_PROJECT_ID
 
-### 4. Provision infrastructure
+### 5. Provision infrastructure
 bash scripts/setup_gcp.sh
 # This runs terraform init, plan, and apply
 # Takes ~3 minutes
 # Outputs: VM IP, bucket name, BigQuery dataset ID
 
-### 5. Create BigQuery tables
+### 6. Create BigQuery tables
 bq query --use_legacy_sql=false < sql/analytics_models.sql
 
-### 6. Start Airflow
+### 7. Start Airflow
 docker compose -f docker/docker-compose.yml up -d
 # Access UI at http://localhost:8080
 # Username: airflow / Password: airflow
 
-### 7. Enable the DAG
-# In Airflow UI, find "github_ingestion" and toggle it ON
+### 8. Enable the DAG
+# In Airflow UI, find "nbaData_ingestion" and toggle it ON
 # It will backfill the last 90 days automatically
-
-### 8. Start Kafka (optional, for streaming)
-docker compose -f kafka/docker-compose.kafka.yml up -d
-python kafka/github_stream_producer.py
 
 ---
 
@@ -104,22 +100,58 @@ docker compose -f docker/docker-compose.yml up -d
 
 ---
 
+## Verifying the Pipeline
+
+After enabling the DAG, verify each step:
+
+### Check GCS — raw data should appear here
+gs://your_bucket/raw/nba/{date}/games.json
+gs://your_bucket/raw/nba/{date}/player_stats.json
+
+### Check BigQuery — run this to confirm data loaded
+SELECT COUNT(*) FROM nba_analytics.game_stats
+WHERE GAME_DATE = CURRENT_DATE()
+
+### Check Airflow — all tasks should show green
+http://localhost:8080
+
+---
+
+## Why We Partition and Cluster
+
+Tables are partitioned by GAME_DATE and clustered by TEAM_ABBREVIATION because:
+
+- Most dashboard queries filter by date range — partitioning means only
+  relevant days are scanned, reducing query cost by up to 90%
+- Most filters are by team — clustering means BigQuery skips
+  non-matching blocks entirely without extra cost
+
+See sql/partition_strategy.md for the full explanation with examples.
+
+---
+
 ## Dashboard
 
 View the live Looker Studio dashboard here: [LINK]
 
 To recreate it yourself, follow: dashboard/looker_setup.md
 
+### Dashboard Preview
+[screenshot goes here]
+
+Chart 1: Team points per game over the season (time series)
+Chart 2: Win/Loss distribution by team (categorical)
+
 ---
 
 ## Partitioning & Clustering Strategy
 
-All BigQuery tables are partitioned by ingestion_date and clustered
-by language/stars. See sql/partition_strategy.md for full explanation.
+All BigQuery tables are partitioned by GAME_DATE and clustered
+by TEAM_ABBREVIATION. See sql/partition_strategy.md for full explanation.
 
 Short version: partitioning reduces query cost by up to 90% by only
 scanning the date ranges you actually need. Clustering speeds up
-dashboard filters on language without additional cost.
+dashboard filters by team without additional cost.
 
 ---
 
@@ -136,15 +168,11 @@ python scripts/backfill.py --start_date 2025-01-01 --end_date 2025-10-01
 
 ---
 
-## Project Structure
-
-[paste final repo structure here]
-
----
-
 ## Known Limitations
 
-- GitHub API rate limit: 5,000 requests/hour. Large backfills may hit this.
-  The DAG handles this with retry logic and exponential backoff.
+- nba_api rate limit: sleep(1) between calls prevents NBA.com from blocking requests.
+  The DAG handles this automatically.
 - Free GCP tier: e2-micro VM may be slow for large Spark jobs.
   Upgrade to e2-standard-2 for production use.
+- nba_api is an unofficial wrapper around NBA.com endpoints.
+  Data availability depends on NBA.com uptime.
