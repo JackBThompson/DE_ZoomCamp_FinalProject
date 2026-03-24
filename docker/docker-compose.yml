@@ -14,7 +14,7 @@ x-airflow-common: &airflow-common
     GCP_PROJECT_ID: ${GCP_PROJECT_ID}
     GCS_BUCKET: ${GCS_BUCKET}
     BIGQUERY_DATASET: ${BIGQUERY_DATASET}
-    volumes:
+  volumes:
     - /home/codespace/DE_ZoomCamp_FinalProject/airflow/dags:/opt/airflow/dags
     - /home/codespace/DE_ZoomCamp_FinalProject/gcp-key.json:/opt/airflow/gcp-key.json
     - airflow-logs:/opt/airflow/logs
