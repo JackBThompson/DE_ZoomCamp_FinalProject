@@ -8,8 +8,22 @@ from airflow.operators.bash import BashOperator
 from airflow.providers.google.cloud.hooks.gcs import GCSHook
 from nba_api.stats.endpoints import LeagueGameFinder, PlayerGameLog
 from nba_api.stats.static import players
+from nba_api.stats.endpoints import LeagueGameFinder
+from nba_api.library.http import NBAStatsHTTP
 from datetime import datetime, timedelta
 from time import sleep
+
+NBAStatsHTTP.nba_response_headers = {
+    'Host': 'stats.nba.com',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept': 'application/json, text/plain, */*',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'Connection': 'keep-alive',
+    'Referer': 'https://www.nba.com/',
+    'Origin': 'https://www.nba.com',
+}
+
 
 # Define DAG: runs daily, start_date = 90 days ago, catchup = True
 dag = DAG(
@@ -38,7 +52,8 @@ def fetch_games(**context):
 
     games = LeagueGameFinder(
         date_from_nullable=execution_date,
-        date_to_nullable=execution_date
+        date_to_nullable=execution_date,
+        timeout=60
     )
 
     sleep(1)
@@ -68,6 +83,7 @@ def fetch_player_stats(**context):
         player_log = PlayerGameLog(
             player_id=player_id,
             season=current_season
+            timeout=60
         )
 
         sleep(1)
