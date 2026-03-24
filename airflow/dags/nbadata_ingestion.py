@@ -99,14 +99,14 @@ def upload_to_gcs(**context):
     hook = GCSHook()
 
     hook.upload(
-        bucket_name='your-bucket-name',
+        bucket_name='nba-pipeline-jaitfrey-03-26',
         object_name=f'raw/nba/{execution_date}/games.json',
         data=games_json,
         mime_type='application/json'
     )
 
     hook.upload(
-        bucket_name='your-bucket-name',
+        bucket_name='nba-pipeline-jaitfrey-03-26',
         object_name=f'raw/nba/{execution_date}/player_stats.json',
         data=stats_json,
         mime_type='application/json'
@@ -122,7 +122,7 @@ def upload_to_gcs(**context):
 
 trigger_spark = BashOperator(
     task_id='trigger_spark',
-    bash_command='spark-submit /path/to/spark/transform.py {{ ds }}',
+    bash_command='spark-submit /home/codespace/DE_ZoomCamp_FinalProject/spark/transform.py {{ ds }}',
     dag=dag
 )
 
