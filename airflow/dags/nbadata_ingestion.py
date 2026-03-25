@@ -82,7 +82,7 @@ def fetch_player_stats(**context):
 
         player_log = PlayerGameLog(
             player_id=player_id,
-            season=current_season
+            season=current_season,
             timeout=60
         )
 
@@ -162,3 +162,4 @@ upload_to_gcs_task = PythonOperator(
 
 # Task order
 fetch_games_task >> fetch_player_stats_task >> upload_to_gcs_task >> trigger_spark
+
