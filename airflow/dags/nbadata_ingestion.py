@@ -2,7 +2,6 @@
 
 import pandas as pd
 import json
-import nba_api.library.http as nba_http
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
@@ -10,10 +9,11 @@ from airflow.providers.google.cloud.hooks.gcs import GCSHook
 from nba_api.stats.endpoints import LeagueGameFinder, PlayerGameLog
 from nba_api.stats.static import players
 from nba_api.stats.endpoints import LeagueGameFinder
+from nba_api.library.http import NBAHTTP
 from datetime import datetime, timedelta
 from time import sleep
 
-NBAStatsHTTP.nba_response_headers = {
+NBAHTTP.headers = {
     'Host': 'stats.nba.com',
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Accept': 'application/json, text/plain, */*',
