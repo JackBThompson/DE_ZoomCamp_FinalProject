@@ -53,6 +53,8 @@ No API key required — nba_api is a free library with no authentication needed.
 
 ## Setup Instructions
 
+## Setup Instructions
+
 ### 1. Clone the repo
 git clone https://github.com/JackBThompson/DE_ZoomCamp_FinalProject.git
 cd DE_ZoomCamp_FinalProject
@@ -62,9 +64,7 @@ pip install -r requirements.txt
 
 ### 3. Set environment variables
 cp .env.example .env
-# Edit .env and fill in:
-#   GCP_PROJECT_ID=your_project_id
-#   GCS_BUCKET=your_bucket_name
+# Edit .env and fill in your GCP values
 
 ### 4. Authenticate with GCP
 gcloud auth login
@@ -73,22 +73,25 @@ gcloud config set project YOUR_PROJECT_ID
 
 ### 5. Provision infrastructure
 bash scripts/setup_gcp.sh
-# This runs terraform init, plan, and apply
-# Takes ~3 minutes
-# Outputs: VM IP, bucket name, BigQuery dataset ID
 
 ### 6. Create BigQuery tables
 bq query --use_legacy_sql=false < sql/analytics_models.sql
 
-### 7. Start Airflow
-docker compose -f docker/docker-compose.yml up -d
-# Access UI at http://localhost:8080
-# Username: airflow / Password: airflow
+### 7. Run ingestion locally
+# NBA.com blocks cloud provider IPs — run this from your local machine
+python scripts/ingest_local.py
+# This uploads raw JSON to GCS automatically
 
-### 8. Enable the DAG
-# In Airflow UI, find "nbaData_ingestion" and toggle it ON
-# It will backfill the last 90 days automatically
+### 8. Start Airflow on VM
+gcloud compute ssh airflow-vm --zone=us-east4-a
+cd ~/DE_ZoomCamp_FinalProject
+docker-compose -f docker/docker-compose.yml up -d
 
+### 9. Run Spark transformation
+spark-submit /home/codespace/DE_ZoomCamp_FinalProject/spark/transform.py 2026-03-24
+
+### 10. Build dashboard
+# Go to lookerstudio.google.com and connect to BigQuery nba_analytics dataset
 ---
 
 ## Local Development (no GCP required)
@@ -170,9 +173,17 @@ python scripts/backfill.py --start_date 2025-01-01 --end_date 2025-10-01
 
 ## Known Limitations
 
-- nba_api rate limit: sleep(1) between calls prevents NBA.com from blocking requests.
-  The DAG handles this automatically.
+- **NBA.com blocks cloud provider IPs** — NBA.com actively blocks requests from GCP, AWS,
+  and all major cloud platforms. Ingestion must be run locally via scripts/ingest_local.py.
+  This is a known issue documented across multiple nba_api GitHub issues since 2020.
+
+- nba_api rate limit: sleep(1) between calls prevents NBA.com from rate limiting.
+
+- Player stats limited to 10 players for demo purposes. Remove the [:10] slice in
+  ingest_local.py to fetch all active players (adds ~8 hours to ingestion time).
+
 - Free GCP tier: e2-micro VM may be slow for large Spark jobs.
   Upgrade to e2-standard-2 for production use.
+
 - nba_api is an unofficial wrapper around NBA.com endpoints.
   Data availability depends on NBA.com uptime.
