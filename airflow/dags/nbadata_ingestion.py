@@ -2,6 +2,7 @@
 
 import pandas as pd
 import json
+import nba_api.library.http as nba_http
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
@@ -9,7 +10,6 @@ from airflow.providers.google.cloud.hooks.gcs import GCSHook
 from nba_api.stats.endpoints import LeagueGameFinder, PlayerGameLog
 from nba_api.stats.static import players
 from nba_api.stats.endpoints import LeagueGameFinder
-from nba_api.library.http import NBAStatsHTTP
 from datetime import datetime, timedelta
 from time import sleep
 
