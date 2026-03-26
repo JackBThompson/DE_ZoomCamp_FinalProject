@@ -23,7 +23,11 @@ dataset = os.environ.get('BIGQUERY_DATASET')
 # [PYTHON] Create Spark session with BigQuery and GCS connectors
 spark = SparkSession.builder \
     .appName('nba_transform') \
-    .config('spark.jars', 'gs://spark-lib/bigquery/spark-bigquery-latest_2.12.jar') \
+    .config('spark.jars', '/home/jackthompson/spark-bigquery-latest_2.12.jar') \
+    .config('spark.hadoop.fs.gs.impl', 'com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem') \
+    .config('spark.hadoop.fs.AbstractFileSystem.gs.impl', 'com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS') \
+    .config('spark.hadoop.google.cloud.auth.service.account.enable', 'true') \
+    .config('spark.hadoop.google.cloud.auth.service.account.json.keyfile', '/home/jackthompson/DE_ZoomCamp_FinalProject/gcp-key.json') \
     .getOrCreate()
 
 spark.conf.set('temporaryGcsBucket', bucket)
