@@ -46,7 +46,7 @@ df_stats = spark.read.json(f'gs://{bucket}/raw/nba/{execution_date}/player_stats
 #   Deduplicate on GAME_ID and TEAM_ID
 
 df_games = df_games \
-    .withColumn('GAME_DATE', to_date(col('GAME_DATE'), 'MMM dd, yyyy')) \
+    .withColumn('GAME_DATE', to_date(col('GAME_DATE'), 'yyyy-MM-dd')) \
     .withColumn('PTS', col('PTS').cast(types.IntegerType())) \
     .withColumn('REB', col('REB').cast(types.IntegerType())) \
     .withColumn('AST', col('AST').cast(types.IntegerType())) \
@@ -71,7 +71,7 @@ df_games = df_games.toDF(*[c.lower() for c in df_games.columns])
 #   Deduplicate on Player_ID and Game_ID
 
 df_stats = df_stats \
-    .withColumn('GAME_DATE', to_date(col('GAME_DATE'), 'MMM dd, yyyy')) \
+    .withColumn('GAME_DATE', to_date(col('GAME_DATE'), 'yyyy-MM-dd')) \
     .withColumn('PTS', col('PTS').cast(types.IntegerType())) \
     .withColumn('REB', col('REB').cast(types.IntegerType())) \
     .withColumn('AST', col('AST').cast(types.IntegerType())) \
