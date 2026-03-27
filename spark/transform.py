@@ -71,7 +71,7 @@ df_games = df_games.toDF(*[c.lower() for c in df_games.columns])
 #   Deduplicate on Player_ID and Game_ID
 
 df_stats = df_stats \
-    .withColumn('GAME_DATE', to_date(col('GAME_DATE'), 'yyyy-MM-dd')) \
+    .withColumn('GAME_DATE', to_date(col('GAME_DATE'), 'MMM dd, yyyy')) \
     .withColumn('PTS', col('PTS').cast(types.IntegerType())) \
     .withColumn('REB', col('REB').cast(types.IntegerType())) \
     .withColumn('AST', col('AST').cast(types.IntegerType())) \
