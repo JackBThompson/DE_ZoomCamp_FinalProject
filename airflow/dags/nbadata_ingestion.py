@@ -2,6 +2,7 @@
 
 import pandas as pd
 import json
+import os
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
@@ -15,64 +16,71 @@ dag = DAG(
     dag_id='nba_ingestion',
     schedule_interval='@daily',
     start_date=datetime.now() - timedelta(days=90),
-    catchup=True
+    catchup=False
 )
 
 def fetch_games(**context):
     execution_date = context['ds']
+    bucket = os.environ.get('GCS_BUCKET')
+
     games = LeagueGameFinder(
         date_from_nullable=execution_date,
         date_to_nullable=execution_date,
         timeout=60
     )
+
     sleep(1)
     df = games.get_data_frames()[0]
     records = df.to_dict(orient='records')
-    context['ti'].xcom_push(key='games', value=records)
+    games_json = '\n'.join([json.dumps(r) for r in records])
+
+    hook = GCSHook()
+    hook.upload(
+        bucket_name=bucket,
+        object_name=f'raw/nba/{execution_date}/games.json',
+        data=games_json,
+        mime_type='application/json'
+    )
 
 def fetch_player_stats(**context):
+    execution_date = context['ds']
+    bucket = os.environ.get('GCS_BUCKET')
+
     current_season = '2024-25'
     active_players = players.get_active_players()[:10]
+
     all_stats = []
+
     for player in active_players:
         player_id = player['id']
+
         player_log = PlayerGameLog(
             player_id=player_id,
             season=current_season,
             timeout=60
         )
+
         sleep(1)
+
         df = player_log.get_data_frames()[0]
         df = df.fillna(0)
+
         records = df.to_dict(orient='records')
         all_stats.extend(records)
-    context['ti'].xcom_push(key='player_stats', value=all_stats)
 
-def upload_to_gcs(**context):
-    execution_date = context['ds']
-    games = context['ti'].xcom_pull(key='games', task_ids='fetch_games')
-    player_stats = context['ti'].xcom_pull(key='player_stats', task_ids='fetch_player_stats')
-    games_json = '\n'.join([json.dumps(record) for record in games])
-    stats_json = '\n'.join([json.dumps(record) for record in player_stats])
+    stats_json = '\n'.join([json.dumps(r) for r in all_stats])
+
     hook = GCSHook()
     hook.upload(
-        bucket_name='nba-pipeline-jaitfrey-03-26',
-        object_name=f'raw/nba/{execution_date}/games.json',
-        data=games_json,
-        mime_type='application/json'
-    )
-    hook.upload(
-        bucket_name='nba-pipeline-jaitfrey-03-26',
+        bucket_name=bucket,
         object_name=f'raw/nba/{execution_date}/player_stats.json',
         data=stats_json,
         mime_type='application/json'
     )
-    print(f'Uploaded {len(games)} game records')
-    print(f'Uploaded {len(player_stats)} player stat records')
 
 trigger_spark = BashOperator(
     task_id='trigger_spark',
-    bash_command='spark-submit /home/codespace/DE_ZoomCamp_FinalProject/spark/transform.py {{ ds }}',
+    bash_command='spark-submit /home/jackthompson/DE_ZoomCamp_FinalProject/spark/transform.py {{ ds }}',
     dag=dag
 )
 
@@ -88,10 +96,4 @@ fetch_player_stats_task = PythonOperator(
     dag=dag
 )
 
-upload_to_gcs_task = PythonOperator(
-    task_id='upload_to_gcs',
-    python_callable=upload_to_gcs,
-    dag=dag
-)
-
-fetch_games_task >> fetch_player_stats_task >> upload_to_gcs_task >> trigger_spark
+[fetch_games_task, fetch_player_stats_task] >> trigger_spark

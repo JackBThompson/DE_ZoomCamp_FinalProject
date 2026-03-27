@@ -5,7 +5,7 @@
 import pyspark
 from pyspark.sql import SparkSession
 from pyspark.sql import types
-from pyspark.sql.functions import col, to_date, lit
+from pyspark.sql.functions import col, to_date, lit, expr
 from datetime import datetime
 import os
 import sys
