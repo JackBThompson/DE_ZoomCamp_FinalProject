@@ -2,6 +2,7 @@
 
 import json
 import os
+import pandas as pd
 from nba_api.stats.endpoints import LeagueGameFinder, PlayerGameLog
 from nba_api.stats.static import players
 from google.cloud import storage
@@ -47,6 +48,7 @@ for player in active_players:
     sleep(1)
     df = player_log.get_data_frames()[0]
     df = df.fillna(0)
+    df = df[df['GAME_DATE'] == pd.Timestamp(execution_date).strftime('%b %d, %Y').replace(' 0', ' ')]
     all_stats.extend(df.to_dict(orient='records'))
     print(f"Fetched {player['full_name']}: {len(df)} records")
 
