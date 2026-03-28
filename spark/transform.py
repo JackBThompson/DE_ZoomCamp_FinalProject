@@ -88,9 +88,38 @@ df_stats = df_stats \
 df_stats = df_stats.toDF(*[c.lower() for c in df_stats.columns])
 
 # [PYTHON] Add metadata column: ingestion_date = execution_date to both DataFrames
+# FIX: Wrapped in to_date() so BigQuery receives a DATE type, not a plain string
 
-df_games = df_games.withColumn('ingestion_date', lit(execution_date))
-df_stats = df_stats.withColumn('ingestion_date', lit(execution_date))
+df_games = df_games.withColumn('ingestion_date', to_date(lit(execution_date), 'yyyy-MM-dd'))
+df_stats = df_stats.withColumn('ingestion_date', to_date(lit(execution_date), 'yyyy-MM-dd'))
+
+# [PYSPARK] Select only the columns defined in the BigQuery game_stats table
+# FIX: Drops any extra columns the NBA API returned that aren't in our BigQuery schema
+
+df_games = df_games.select(
+    'season_id', 'team_id', 'team_abbreviation', 'team_name',
+    'game_id', 'game_date', 'matchup', 'wl', 'min',
+    'pts', 'fgm', 'fga', 'fg_pct',
+    'fg3m', 'fg3a', 'fg3_pct',
+    'ftm', 'fta', 'ft_pct',
+    'oreb', 'dreb', 'reb',
+    'ast', 'stl', 'blk', 'tov', 'pf',
+    'plus_minus', 'ingestion_date'
+)
+
+# [PYSPARK] Select only the columns defined in the BigQuery player_stats table
+# FIX: Drops any extra columns the NBA API returned that aren't in our BigQuery schema
+
+df_stats = df_stats.select(
+    'season_id', 'player_id', 'game_id', 'game_date',
+    'matchup', 'wl', 'min',
+    'pts', 'fgm', 'fga', 'fg_pct',
+    'fg3m', 'fg3a', 'fg3_pct',
+    'ftm', 'fta', 'ft_pct',
+    'oreb', 'dreb', 'reb',
+    'ast', 'stl', 'blk', 'tov', 'pf',
+    'plus_minus', 'ingestion_date'
+)
 
 # [PYSPARK] Write games to GCS processed zone as Parquet partitioned by GAME_DATE
 # [PYSPARK] Write player stats to GCS processed zone as Parquet partitioned by GAME_DATE
@@ -108,7 +137,6 @@ df_stats.write.partitionBy('game_date') \
 #   Partition BigQuery table by GAME_DATE
 #   Cluster by TEAM_ABBREVIATION
 
-
 df_games.write.format('bigquery') \
     .option('table', f'{project}.{dataset}.game_stats') \
     .option('partitionField', 'game_date') \
@@ -116,7 +144,6 @@ df_games.write.format('bigquery') \
     .option('writeMethod', 'direct') \
     .mode('append') \
     .save()
-
 
 # [SPARK SQL] Load player stats Parquet to BigQuery table: nba_analytics.player_stats
 #   Use WRITE_APPEND mode
