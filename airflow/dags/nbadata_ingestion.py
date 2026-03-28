@@ -51,7 +51,7 @@ def fetch_player_stats(**context):
 
     all_stats = []
 
-    for player in active_players:
+for player in active_players:
     player_id = player['id']
     player_name = player['full_name']
 

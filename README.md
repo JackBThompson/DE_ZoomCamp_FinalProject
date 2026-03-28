@@ -181,3 +181,6 @@ pytest tests/
 - **Rate limiting** — `sleep(1)` between API calls is required to avoid NBA.com rate limits.
 - **Free tier VM** — the e2-micro instance may be slow for large Spark jobs. Upgrade to e2-standard-2 for production use.
 - **Unofficial API** — `nba_api` wraps undocumented NBA.com endpoints. Data availability depends on NBA.com uptime.
+
+
+1. Top Scorers by Avg Pointstop_scorersCategorical bar chartPlayer Performance Over Timeplayer_performance_over_timeTemporal line chart
