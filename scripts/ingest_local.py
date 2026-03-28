@@ -49,7 +49,6 @@ for player in active_players:
     df = player_log.get_data_frames()[0]
     df = df.fillna(0)
     df['player_name'] = player['full_name']
-    df = df[df['GAME_DATE'] == pd.Timestamp(execution_date).strftime('%b %d, %Y').replace(' 0', ' ')]
     all_stats.extend(df.to_dict(orient='records'))
     print(f"Fetched {player['full_name']}: {len(df)} records")
 
