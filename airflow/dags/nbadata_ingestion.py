@@ -15,7 +15,7 @@ from time import sleep
 dag = DAG(
     dag_id='nba_ingestion',
     schedule_interval=None,
-    start_date=datetime.now() - timedelta(days=90),
+    start_date=datetime(2025, 1, 1),
     catchup=False
 )
  
@@ -23,9 +23,10 @@ def fetch_games(**context):
     execution_date = context['ds']
     bucket = os.environ.get('GCS_BUCKET')
  
+    # Fetch full 2024-25 season
     games = LeagueGameFinder(
-        date_from_nullable=execution_date,
-        date_to_nullable=execution_date,
+        season_nullable='2024-25',
+        league_id_nullable='00',
         timeout=60
     )
  
@@ -47,14 +48,23 @@ def fetch_player_stats(**context):
     bucket = os.environ.get('GCS_BUCKET')
  
     current_season = '2024-25'
-    active_players = players.get_active_players()[:10]
+ 
+    star_player_ids = [
+        2544,    # LeBron James
+        203954,  # Joel Embiid
+        1629029, # Luka Doncic
+        203507,  # Giannis Antetokounmpo
+        1628384, # Jayson Tatum
+        201939,  # Stephen Curry
+        1629627, # Ja Morant
+        203999,  # Nikola Jokic
+        1628389, # Bam Adebayo
+        1629028, # Shai Gilgeous-Alexander
+    ]
  
     all_stats = []
  
-    for player in active_players:
-        player_id = player['id']
-        player_name = player['full_name']
- 
+    for player_id in star_player_ids:
         player_log = PlayerGameLog(
             player_id=player_id,
             season=current_season,
@@ -65,10 +75,13 @@ def fetch_player_stats(**context):
  
         df = player_log.get_data_frames()[0]
         df = df.fillna(0)
-        df['player_name'] = player_name
+ 
+        player_info = next((p for p in players.get_active_players() if p['id'] == player_id), None)
+        df['player_name'] = player_info['full_name'] if player_info else str(player_id)
+ 
         records = df.to_dict(orient='records')
         all_stats.extend(records)
-        print(f"Fetched {player_name}: {len(records)} records")
+        print(f"Fetched {df['player_name'].iloc[0] if len(df) > 0 else player_id}: {len(records)} records")
  
     # Outside the loop — upload after all players are fetched
     stats_json = '\n'.join([json.dumps(r) for r in all_stats])
