@@ -96,6 +96,7 @@ CLUSTER BY player_id;
 */
 
 
+-- [VIEW] player_avgPoints
 CREATE OR REPLACE VIEW nba_analytics.top_scorers AS
 SELECT
     player_id,

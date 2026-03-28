@@ -12,7 +12,7 @@ from time import sleep
 os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = 'gcp-key.json'
 
 BUCKET = 'nba-pipeline-jaitfrey-03-26'
-execution_date = str(date.today())
+execution_date = '2025-04-13'
 
 def upload_to_gcs(bucket_name, destination, data):
     client = storage.Client()
@@ -48,7 +48,7 @@ for player in active_players:
     sleep(1)
     df = player_log.get_data_frames()[0]
     df = df.fillna(0)
-    df['player_name'] = player['full_name']  # ← add this line
+    df['player_name'] = player['full_name']
     df = df[df['GAME_DATE'] == pd.Timestamp(execution_date).strftime('%b %d, %Y').replace(' 0', ' ')]
     all_stats.extend(df.to_dict(orient='records'))
     print(f"Fetched {player['full_name']}: {len(df)} records")
