@@ -52,21 +52,22 @@ def fetch_player_stats(**context):
     all_stats = []
 
     for player in active_players:
-        player_id = player['id']
+    player_id = player['id']
+    player_name = player['full_name']
 
-        player_log = PlayerGameLog(
-            player_id=player_id,
-            season=current_season,
-            timeout=60
-        )
+    player_log = PlayerGameLog(
+        player_id=player_id, 
+        season=current_season, 
+        timeout=60)
 
-        sleep(1)
+    sleep(1)
 
-        df = player_log.get_data_frames()[0]
-        df = df.fillna(0)
-        df = df[df['GAME_DATE'] == pd.Timestamp(execution_date).strftime('%b %d, %Y').replace(' 0', ' ')]
-        records = df.to_dict(orient='records')
-        all_stats.extend(records)
+    df = player_log.get_data_frames()[0]
+    df = df.fillna(0)
+    df['player_name'] = player_name
+    df = df[df['GAME_DATE'] == pd.Timestamp(execution_date).strftime('%b %d, %Y').replace(' 0', ' ')]
+    records = df.to_dict(orient='records')
+    all_stats.extend(records)
 
     stats_json = '\n'.join([json.dumps(r) for r in all_stats])
 

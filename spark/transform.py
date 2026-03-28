@@ -111,7 +111,7 @@ df_games = df_games.select(
 # FIX: Drops any extra columns the NBA API returned that aren't in our BigQuery schema
 
 df_stats = df_stats.select(
-    'season_id', 'player_id', 'game_id', 'game_date',
+    'season_id', 'player_id', 'player_name', 'game_id', 'game_date',
     'matchup', 'wl', 'min',
     'pts', 'fgm', 'fga', 'fg_pct',
     'fg3m', 'fg3a', 'fg3_pct',

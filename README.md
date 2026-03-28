@@ -2,25 +2,22 @@
 
 ## Problem Description
 
-NBA fans, analysts, and fantasy sports players have no easy way to track
-how team performance, player stats, and game trends change over time
-across a full season. This pipeline solves that by:
+NBA fans, analysts, and fantasy sports players have no easy way to track how team performance, player stats, and game trends evolve across a full season. This pipeline solves that by ingesting NBA game and player data daily, transforming it with PySpark, and surfacing it in a Looker Studio dashboard.
 
-- Ingesting NBA game and player data daily via the nba_api library
-- Tracking points, rebounds, assists, shooting efficiency, and plus/minus over time
-- Making the data queryable in BigQuery and visual in Looker Studio
-
-This project demonstrates a production-grade data engineering pipeline
-handling real-world challenges: incremental daily loads, nested data
-structures, deduplication, and cost-efficient data warehousing.
+The project covers the full data engineering stack: incremental daily loads, raw JSON landing in GCS, batch transformation with Spark, partitioned and clustered tables in BigQuery, and a live dashboard built on top of SQL views.
 
 ---
 
 ## Architecture
 
-NBA API → Airflow (orchestration) → GCS (raw storage)
-       → Spark (transformation) → BigQuery (warehouse)
-       → Looker Studio (dashboard)
+```
+NBA API
+  → Airflow DAG (orchestration)
+  → GCS (raw JSON storage)
+  → PySpark (transformation)
+  → BigQuery (warehouse + SQL views)
+  → Looker Studio (dashboard)
+```
 
 ---
 
@@ -30,8 +27,8 @@ NBA API → Airflow (orchestration) → GCS (raw storage)
 |---|---|
 | Cloud | GCP |
 | IaC | Terraform |
-| Orchestration | Airflow |
-| Storage | GCS |
+| Orchestration | Airflow (Docker) |
+| Storage | Google Cloud Storage |
 | Processing | PySpark |
 | Warehouse | BigQuery |
 | Dashboard | Looker Studio |
@@ -40,150 +37,147 @@ NBA API → Airflow (orchestration) → GCS (raw storage)
 
 ## Prerequisites
 
-Install these before starting:
-- gcloud CLI: https://cloud.google.com/sdk/docs/install
-- Terraform: https://developer.hashicorp.com/terraform/install
+- [gcloud CLI](https://cloud.google.com/sdk/docs/install)
+- [Terraform](https://developer.hashicorp.com/terraform/install)
 - Docker + Docker Compose
 - Python 3.10+
-- A GCP account with billing enabled
+- GCP account with billing enabled
 
-No API key required — nba_api is a free library with no authentication needed.
+No NBA API key required — `nba_api` is a free library with no authentication.
 
 ---
-
-## Setup Instructions
 
 ## Setup Instructions
 
 ### 1. Clone the repo
+```bash
 git clone https://github.com/JackBThompson/DE_ZoomCamp_FinalProject.git
 cd DE_ZoomCamp_FinalProject
+```
 
 ### 2. Install dependencies
+```bash
 pip install -r requirements.txt
+```
 
 ### 3. Set environment variables
+```bash
 cp .env.example .env
-# Edit .env and fill in your GCP values
+# Open .env and fill in your GCP values:
+# GCS_BUCKET, GCP_PROJECT_ID, BIGQUERY_DATASET
+```
 
 ### 4. Authenticate with GCP
+```bash
 gcloud auth login
 gcloud auth application-default login
 gcloud config set project YOUR_PROJECT_ID
+```
 
-### 5. Provision infrastructure
+### 5. Provision infrastructure (Terraform)
+```bash
 bash scripts/setup_gcp.sh
+```
 
 ### 6. Create BigQuery tables
+```bash
 bq query --use_legacy_sql=false < sql/analytics_models.sql
+```
 
-### 7. Run ingestion locally
-# NBA.com blocks cloud provider IPs — run this from your local machine
+### 7. Ingest raw data locally
+> **Important:** NBA.com actively blocks requests from GCP, AWS, and all major cloud providers. Ingestion must be run from your local machine.
+
+```bash
 python scripts/ingest_local.py
-# This uploads raw JSON to GCS automatically
+```
+This fetches game and player data from the NBA API and uploads raw JSON directly to GCS.
 
-### 8. Start Airflow on VM
+### 8. Start Airflow on the VM
+```bash
 gcloud compute ssh airflow-vm --zone=us-east4-a
 cd ~/DE_ZoomCamp_FinalProject
 docker-compose -f docker/docker-compose.yml up -d
+```
+Airflow UI is available at `http://localhost:8080` after startup.
 
-### 9. Run Spark transformation
-spark-submit /home/codespace/DE_ZoomCamp_FinalProject/spark/transform.py 2026-03-24
+### 9. Run the Spark transformation
+```bash
+spark-submit \
+  --packages com.google.cloud.spark:spark-bigquery-with-dependencies_2.12:0.36.1 \
+  --jars /home/jackthompson/gcs-connector-hadoop3-latest.jar \
+  --conf spark.hadoop.fs.gs.impl=com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem \
+  --conf spark.hadoop.fs.AbstractFileSystem.gs.impl=com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS \
+  --conf spark.hadoop.google.cloud.auth.service.account.enable=true \
+  --conf spark.hadoop.google.cloud.auth.service.account.json.keyfile=/home/jackthompson/DE_ZoomCamp_FinalProject/gcp-key.json \
+  spark/transform.py 2026-03-24
+```
 
-### 10. Build dashboard
-# Go to lookerstudio.google.com and connect to BigQuery nba_analytics dataset
+### 10. Verify data landed in BigQuery
+```sql
+SELECT COUNT(*) FROM `nba_analytics.game_stats`;
+SELECT COUNT(*) FROM `nba_analytics.player_stats`;
+```
+
 ---
 
 ## Local Development (no GCP required)
 
+```bash
 docker compose -f docker/docker-compose.yml up -d
-# MinIO runs at localhost:9000 (replaces GCS locally)
-# Airflow runs at localhost:8080
-# Spark master runs at localhost:8081
+```
+
+| Service | URL |
+|---|---|
+| Airflow | http://localhost:8080 |
+| Spark master | http://localhost:8081 |
+| MinIO (GCS replacement) | http://localhost:9000 |
 
 ---
 
-## Verifying the Pipeline
+## Why Tables Are Partitioned and Clustered
 
-After enabling the DAG, verify each step:
+Both `game_stats` and `player_stats` are partitioned by `game_date` and clustered by `team_abbreviation` / `player_id`.
 
-### Check GCS — raw data should appear here
-gs://your_bucket/raw/nba/{date}/games.json
-gs://your_bucket/raw/nba/{date}/player_stats.json
+- **Partitioning** — dashboard queries always filter by date range. Partitioning means BigQuery only scans the relevant days rather than the entire table, reducing query cost by up to 90%.
+- **Clustering** — most filters are team or player specific. Clustering lets BigQuery skip non-matching blocks entirely at no extra cost.
 
-### Check BigQuery — run this to confirm data loaded
-SELECT COUNT(*) FROM nba_analytics.game_stats
-WHERE GAME_DATE = CURRENT_DATE()
-
-### Check Airflow — all tasks should show green
-http://localhost:8080
-
----
-
-## Why We Partition and Cluster
-
-Tables are partitioned by GAME_DATE and clustered by TEAM_ABBREVIATION because:
-
-- Most dashboard queries filter by date range — partitioning means only
-  relevant days are scanned, reducing query cost by up to 90%
-- Most filters are by team — clustering means BigQuery skips
-  non-matching blocks entirely without extra cost
-
-See sql/partition_strategy.md for the full explanation with examples.
+See `sql/partition_strategy.md` for the full explanation with query examples.
 
 ---
 
 ## Dashboard
 
-View the live Looker Studio dashboard here: [LINK]
+View the live Looker Studio dashboard: [LINK]
 
-To recreate it yourself, follow: dashboard/looker_setup.md
+Built on two tiles:
+- **Win/Loss by Team** — categorical bar chart showing wins and losses per team across the 2024-25 season
+- **Player Performance Over Time** — time series showing points, rebounds, assists, and plus/minus per game
 
-### Dashboard Preview
-[screenshot goes here]
-
-Chart 1: Team points per game over the season (time series)
-Chart 2: Win/Loss distribution by team (categorical)
-
----
-
-## Partitioning & Clustering Strategy
-
-All BigQuery tables are partitioned by GAME_DATE and clustered
-by TEAM_ABBREVIATION. See sql/partition_strategy.md for full explanation.
-
-Short version: partitioning reduces query cost by up to 90% by only
-scanning the date ranges you actually need. Clustering speeds up
-dashboard filters by team without additional cost.
-
----
-
-## Running Tests
-
-pip install pytest pyspark
-pytest tests/
+To recreate the dashboard, follow `dashboard/looker_setup.md`.
 
 ---
 
 ## Backfilling Historical Data
 
+```bash
 python scripts/backfill.py --start_date 2025-01-01 --end_date 2025-10-01
+```
+
+---
+
+## Running Tests
+
+```bash
+pip install pytest pyspark
+pytest tests/
+```
 
 ---
 
 ## Known Limitations
 
-- **NBA.com blocks cloud provider IPs** — NBA.com actively blocks requests from GCP, AWS,
-  and all major cloud platforms. Ingestion must be run locally via scripts/ingest_local.py.
-  This is a known issue documented across multiple nba_api GitHub issues since 2020.
-
-- nba_api rate limit: sleep(1) between calls prevents NBA.com from rate limiting.
-
-- Player stats limited to 10 players for demo purposes. Remove the [:10] slice in
-  ingest_local.py to fetch all active players (adds ~8 hours to ingestion time).
-
-- Free GCP tier: e2-micro VM may be slow for large Spark jobs.
-  Upgrade to e2-standard-2 for production use.
-
-- nba_api is an unofficial wrapper around NBA.com endpoints.
-  Data availability depends on NBA.com uptime.
+- **NBA.com blocks cloud IPs** — ingestion must run locally via `scripts/ingest_local.py`. This is a documented limitation of `nba_api` affecting GCP, AWS, and Azure since 2020.
+- **Player stats limited to 10 players** — the `[:10]` slice in `ingest_local.py` is intentional for demo purposes. Remove it to fetch all active players, but expect ~8 hours of runtime.
+- **Rate limiting** — `sleep(1)` between API calls is required to avoid NBA.com rate limits.
+- **Free tier VM** — the e2-micro instance may be slow for large Spark jobs. Upgrade to e2-standard-2 for production use.
+- **Unofficial API** — `nba_api` wraps undocumented NBA.com endpoints. Data availability depends on NBA.com uptime.

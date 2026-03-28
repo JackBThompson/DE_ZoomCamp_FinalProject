@@ -14,7 +14,7 @@
 --            FTM, FTA, FT_PCT, OREB, DREB, REB,
 --            AST, STL, BLK, TOV, PF, PLUS_MINUS, ingestion_date
 
-CREATE TABLE IF NOT EXISTS nba_analytics.game_stats (
+/*CREATE TABLE IF NOT EXISTS nba_analytics.game_stats (
     season_id         STRING,
     team_id           INT64,
     team_abbreviation STRING,
@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS nba_analytics.game_stats (
 )
 PARTITION BY game_date
 CLUSTER BY team_abbreviation;
+*/
 
 -- [SQL] Create Table: player_stats
 -- Physically stores the data in BigQuery, rows written by Spark land here
@@ -61,7 +62,7 @@ CLUSTER BY team_abbreviation;
 --            OREB, DREB, REB, AST, STL, BLK, TOV,
 --            PF, PLUS_MINUS, ingestion_date
 
-CREATE TABLE IF NOT EXISTS nba_analytics.player_stats (
+/*CREATE TABLE IF NOT EXISTS nba_analytics.player_stats (
     season_id      STRING,
     player_id      INT64,
     game_id        STRING,
@@ -92,54 +93,47 @@ CREATE TABLE IF NOT EXISTS nba_analytics.player_stats (
 )
 PARTITION BY game_date
 CLUSTER BY player_id;
+*/
 
 
--- [SQL] View: top_teams_by_points
---  a saved SELECT query, no data stored, just a lens over the table — every time you query the view it runs the SELECT fresh against the underlying table
---   SELECT TEAM_ABBREVIATION, AVG(PTS) as avg_points
---   FROM game_stats
---   WHERE GAME_DATE = latest partition
---   ORDER BY avg_points DESC
-
-CREATE OR REPLACE VIEW nba_analytics.top_teams_by_points AS
+CREATE OR REPLACE VIEW nba_analytics.top_scorers AS
 SELECT
-    team_abbreviation,
-    AVG(pts) AS avg_points
-FROM nba_analytics.game_stats
-WHERE game_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
-GROUP BY team_abbreviation
-ORDER BY avg_points DESC;
-
-
-
--- [SQL] View: player_performance_over_time
---  a saved SELECT query, no data stored, just a lens over the table — every time you query the view it runs the SELECT fresh against the underlying table
---   SELECT Player_ID, GAME_DATE, PTS, REB, AST, PLUS_MINUS
---   FROM player_stats
---   WHERE GAME_DATE BETWEEN start_date AND end_date
---   ORDER BY GAME_DATE
-
+    player_id,
+    player_name,
+    ROUND(AVG(pts), 1)        AS avg_pts,
+    ROUND(AVG(reb), 1)        AS avg_reb,
+    ROUND(AVG(ast), 1)        AS avg_ast,
+    ROUND(AVG(plus_minus), 1) AS avg_plus_minus,
+    COUNT(*) AS games_played
+FROM nba_analytics.player_stats
+WHERE game_date >= '2024-10-01'
+GROUP BY player_id, player_name
+ORDER BY avg_pts DESC
+LIMIT 20;
+ 
+-- [VIEW] player_performance_over_time
+-- Lens over player_stats — no data stored, runs fresh on every query
+-- Shows pts, rebounds, assists, plus_minus per player per game over last 30 days
+-- Used for: player trend charts in dashboard
+ 
 CREATE OR REPLACE VIEW nba_analytics.player_performance_over_time AS
 SELECT
     player_id,
     game_date,
     pts,
-    oreb + dreb AS total_reb,
+    reb,
     ast,
     plus_minus
 FROM nba_analytics.player_stats
 WHERE game_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
 ORDER BY game_date;
-
-
--- [SQL] View: win_loss_by_team
---  a saved SELECT query, no data stored, just a lens over the table — every time you query the view it runs the SELECT fresh against the underlying table
---   SELECT TEAM_ABBREVIATION, WL, COUNT(*) as game_count
---   FROM game_stats
---   WHERE GAME_DATE >= current season start
---   GROUP BY TEAM_ABBREVIATION, WL
---   ORDER BY TEAM_ABBREVIATION
-
+ 
+ 
+-- [VIEW] win_loss_by_team
+-- Lens over game_stats — no data stored, runs fresh on every query
+-- Counts wins and losses per team since start of 2024-25 season
+-- Used for: win/loss breakdown chart in dashboard
+ 
 CREATE OR REPLACE VIEW nba_analytics.win_loss_by_team AS
 SELECT
     team_abbreviation,
@@ -149,17 +143,13 @@ FROM nba_analytics.game_stats
 WHERE game_date >= '2024-10-01'
 GROUP BY team_abbreviation, wl
 ORDER BY team_abbreviation;
-
-
--- [SQL] Pipeline health check
---  a saved SELECT query, no data stored, just a lens over the table — every time you query the view it runs the SELECT fresh against the underlying table
---   SELECT ingestion_date, COUNT(*) as records_ingested
---   FROM game_stats
---   WHERE ingestion_date >= 7 days ago
---   GROUP BY ingestion_date
---   ORDER BY ingestion_date DESC
---   If count = 0 for today ingestion failed
-
+ 
+ 
+-- [VIEW] pipeline_health_check
+-- Lens over game_stats — no data stored, runs fresh on every query
+-- Shows how many records were ingested per day over the last 7 days
+-- Used for: monitoring — if count = 0 for today, ingestion failed
+ 
 CREATE OR REPLACE VIEW nba_analytics.pipeline_health_check AS
 SELECT
     ingestion_date,
