@@ -38,7 +38,7 @@ print(f'Games uploaded: {len(df_games)} records')
 print('Fetching player stats...')
 star_player_ids = [
     2544,    # LeBron James
-    183284,  # Tyrese Maxey
+    1630178,  # Tyrese Maxey
     1629029, # Luka Doncic
     203507,  # Giannis Antetokounmpo
     1628369, # Jayson Tatum
