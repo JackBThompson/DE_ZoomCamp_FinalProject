@@ -51,15 +51,15 @@ def fetch_player_stats(**context):
  
     star_player_ids = [
         2544,    # LeBron James
-        203954,  # Joel Embiid
+        183284,  # Tyrese Maxey
         1629029, # Luka Doncic
         203507,  # Giannis Antetokounmpo
-        1628384, # Jayson Tatum
+        1628369, # Jayson Tatum
         201939,  # Stephen Curry
-        1629627, # Ja Morant
+        1629630, # Ja Morant
         203999,  # Nikola Jokic
-        1628389, # Bam Adebayo
-        1629028, # Shai Gilgeous-Alexander
+        1641705, # Victor Wembanyama
+        1628983, # Shai Gilgeous-Alexander
     ]
  
     all_stats = []
