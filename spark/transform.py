@@ -23,7 +23,6 @@ dataset = os.environ.get('BIGQUERY_DATASET')
 # [PYTHON] Create Spark session with BigQuery and GCS connectors
 spark = SparkSession.builder \
     .appName('nba_transform') \
-    .config('spark.jars', '/home/jackthompson/spark-bigquery-latest_2.12.jar') \
     .config('spark.hadoop.fs.gs.impl', 'com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem') \
     .config('spark.hadoop.fs.AbstractFileSystem.gs.impl', 'com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS') \
     .config('spark.hadoop.google.cloud.auth.service.account.enable', 'true') \
@@ -96,11 +95,11 @@ df_stats = df_stats.withColumn('ingestion_date', lit(execution_date))
 # [PYSPARK] Write games to GCS processed zone as Parquet partitioned by GAME_DATE
 # [PYSPARK] Write player stats to GCS processed zone as Parquet partitioned by GAME_DATE
 
-df_games.write.partitionBy('GAME_DATE') \
+df_games.write.partitionBy('game_date') \
     .mode('append') \
     .parquet(f'gs://{bucket}/processed/nba/{execution_date}/games/')
 
-df_stats.write.partitionBy('GAME_DATE') \
+df_stats.write.partitionBy('game_date') \
     .mode('append') \
     .parquet(f'gs://{bucket}/processed/nba/{execution_date}/player_stats/')
 
@@ -112,8 +111,9 @@ df_stats.write.partitionBy('GAME_DATE') \
 
 df_games.write.format('bigquery') \
     .option('table', f'{project}.{dataset}.game_stats') \
-    .option('partitionField', 'GAME_DATE') \
-    .option('clusteredFields', 'TEAM_ABBREVIATION') \
+    .option('partitionField', 'game_date') \
+    .option('clusteredFields', 'team_abbreviation') \
+    .option('writeMethod', 'direct') \
     .mode('append') \
     .save()
 
@@ -125,8 +125,9 @@ df_games.write.format('bigquery') \
 
 df_stats.write.format('bigquery') \
     .option('table', f'{project}.{dataset}.player_stats') \
-    .option('partitionField', 'GAME_DATE') \
-    .option('clusteredFields', 'Player_ID') \
+    .option('partitionField', 'game_date') \
+    .option('clusteredFields', 'player_id') \
+    .option('writeMethod', 'direct') \
     .mode('append') \
     .save()
 
