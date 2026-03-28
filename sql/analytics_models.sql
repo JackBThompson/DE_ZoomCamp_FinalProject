@@ -120,13 +120,14 @@ LIMIT 20;
 CREATE OR REPLACE VIEW nba_analytics.player_performance_over_time AS
 SELECT
     player_id,
+    player_name,
     game_date,
     pts,
     reb,
     ast,
     plus_minus
 FROM nba_analytics.player_stats
-WHERE game_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
+WHERE game_date >= '2024-10-01'
 ORDER BY game_date;
  
  

@@ -183,4 +183,5 @@ pytest tests/
 - **Unofficial API** — `nba_api` wraps undocumented NBA.com endpoints. Data availability depends on NBA.com uptime.
 
 
-1. Top Scorers by Avg Pointstop_scorersCategorical bar chartPlayer Performance Over Timeplayer_performance_over_timeTemporal line chart
+1. Top Scorers by Avg Pointstop_scorersCategorical bar chart
+2. Player Performance Over Timeplayer_performance_over_timeTemporal line chart
