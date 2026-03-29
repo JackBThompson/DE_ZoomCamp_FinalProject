@@ -14,7 +14,7 @@
 --            FTM, FTA, FT_PCT, OREB, DREB, REB,
 --            AST, STL, BLK, TOV, PF, PLUS_MINUS, ingestion_date
 
-/*CREATE TABLE IF NOT EXISTS nba_analytics.game_stats (
+CREATE TABLE IF NOT EXISTS nba_analytics.game_stats (
     season_id         STRING,
     team_id           INT64,
     team_abbreviation STRING,
@@ -47,7 +47,7 @@
 )
 PARTITION BY game_date
 CLUSTER BY team_abbreviation;
-*/
+
 
 -- [SQL] Create Table: player_stats
 -- Physically stores the data in BigQuery, rows written by Spark land here
@@ -62,7 +62,7 @@ CLUSTER BY team_abbreviation;
 --            OREB, DREB, REB, AST, STL, BLK, TOV,
 --            PF, PLUS_MINUS, ingestion_date
 
-/*CREATE TABLE IF NOT EXISTS nba_analytics.player_stats (
+CREATE TABLE IF NOT EXISTS nba_analytics.player_stats (
     season_id      STRING,
     player_id      INT64,
     game_id        STRING,
@@ -93,7 +93,7 @@ CLUSTER BY team_abbreviation;
 )
 PARTITION BY game_date
 CLUSTER BY player_id;
-*/
+
 
 
 -- [VIEW] player_avgPoints

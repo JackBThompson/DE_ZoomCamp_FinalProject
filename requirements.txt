@@ -5,6 +5,3 @@ pyspark
 pandas
 google-cloud-storage
 google-cloud-bigquery
-kafka-python
-streamlit
-plotly
