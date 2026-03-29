@@ -132,7 +132,6 @@ Both `game_stats` and `player_stats` are partitioned by `game_date` and clustere
 ## Dashboard
 
 View the live Looker Studio dashboard:
-https://lookerstudio.google.com/u/0/reporting/26200b1d-e0c6-4919-9eee-d55676aa994b/page/YsZtF
 https://lookerstudio.google.com/u/0/reporting/787022c9-e531-44ce-9291-e9183fe5bf2e/page/dRZtF
 
 Built on two tiles:
