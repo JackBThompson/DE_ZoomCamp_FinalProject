@@ -1,14 +1,15 @@
-##Objective: Creates curated views and tables in BigQuery for downstream reporting and dashboards.##
+-- Objective: Creates curated views and tables in BigQuery for downstream reporting and dashboards.
 
--- [SQL] Create Table: game_stats
+
+-- Partitioning — dashboard queries always filter by date range. Partitioning means BigQuery only scans the relevant days rather than the entire table, reducing query cost by up to 90%.
+-- Clustering — most filters are team or player specific. Clustering lets BigQuery skip non-matching blocks entirely at no extra cost.
+
+
+-- [SQL] CREATE TABLE nba_analytics.game_stats
 -- Physically stores the data in BigQuery, rows written by Spark land here
 -- Partitioned by GAME_DATE so queries only scan relevant days
 -- Clustered by TEAM_ABBREVIATION so filtering by team hits minimal data
-
--- CREATE TABLE nba_analytics.game_stats
---   Partition by GAME_DATE
---   Cluster by TEAM_ABBREVIATION
---   Columns: SEASON_ID, TEAM_ID, TEAM_ABBREVIATION, TEAM_NAME,
+-- Columns: SEASON_ID, TEAM_ID, TEAM_ABBREVIATION, TEAM_NAME,
 --            GAME_ID, GAME_DATE, MATCHUP, WL, MIN, PTS,
 --            FGM, FGA, FG_PCT, FG3M, FG3A, FG3_PCT,
 --            FTM, FTA, FT_PCT, OREB, DREB, REB,
@@ -48,14 +49,10 @@ CREATE TABLE IF NOT EXISTS nba_analytics.game_stats (
 PARTITION BY game_date
 CLUSTER BY team_abbreviation;
 
-
--- [SQL] Create Table: player_stats
--- Physically stores the data in BigQuery, rows written by Spark land here
--- Partitioned by GAME_DATE
--- Clustered by Player_ID for fast player-specific lookups
--- CREATE TABLE nba_analytics.player_stats
+-- [SQL] CREATE TABLE nba_analytics.player_stats
+--Physically stores the data in BigQuery, rows written by Spark land here
 --   Partition by GAME_DATE
---   Cluster by Player_ID
+--   Cluster by Player_ID for fast player-specific lookups
 --   Columns: SEASON_ID, Player_ID, Game_ID, GAME_DATE,
 --            MATCHUP, WL, MIN, PTS, FGM, FGA, FG_PCT,
 --            FG3M, FG3A, FG3_PCT, FTM, FTA, FT_PCT,
@@ -96,7 +93,7 @@ CLUSTER BY player_id;
 
 
 
--- [VIEW] player_avgPoints
+-- [VIEW] Player Average Points for entire season
 CREATE OR REPLACE VIEW nba_analytics.top_scorers AS
 SELECT
     player_id,
@@ -112,10 +109,7 @@ GROUP BY player_id, player_name
 ORDER BY avg_pts DESC
 LIMIT 20;
  
--- [VIEW] player_performance_over_time
--- Lens over player_stats — no data stored, runs fresh on every query
--- Shows pts, rebounds, assists, plus_minus per player per game over last 30 days
--- Used for: player trend charts in dashboard
+-- [VIEW] Player Performance for entire season
  
 CREATE OR REPLACE VIEW nba_analytics.player_performance_over_time AS
 SELECT
@@ -131,10 +125,7 @@ WHERE game_date >= '2024-10-01'
 ORDER BY game_date;
  
  
--- [VIEW] win_loss_by_team
--- Lens over game_stats — no data stored, runs fresh on every query
--- Counts wins and losses per team since start of 2024-25 season
--- Used for: win/loss breakdown chart in dashboard
+-- [VIEW] win_loss_by_team - NOT USED IN DASHBOARD
  
 CREATE OR REPLACE VIEW nba_analytics.win_loss_by_team AS
 SELECT
@@ -147,10 +138,7 @@ GROUP BY team_abbreviation, wl
 ORDER BY team_abbreviation;
  
  
--- [VIEW] pipeline_health_check
--- Lens over game_stats — no data stored, runs fresh on every query
--- Shows how many records were ingested per day over the last 7 days
--- Used for: monitoring — if count = 0 for today, ingestion failed
+-- [VIEW] pipeline_health_check - NOT USED IN DASHBOARD
  
 CREATE OR REPLACE VIEW nba_analytics.pipeline_health_check AS
 SELECT

@@ -1,7 +1,6 @@
 ##Objective: Reads raw NBA JSON from GCS, cleans and transforms game and player stats, and writes to BigQuery.##
 ## Python holds it all together - PySpark handles reading/writing, and Spark SQL handles the transformation logic  ##
 
-# Import PySpark, BigQuery connector, sys
 import pyspark
 from pyspark.sql import SparkSession
 from pyspark.sql import types
@@ -10,14 +9,14 @@ from datetime import datetime
 import os
 import sys
 
-# [PYTHON] Read execution_date from command line args
-#   Airflow passes execution_date when it calls spark-submit
+# [PYTHON] Read execution_date from command line args.  Airflow passes execution_date when it calls spark-submit
 
 execution_date = sys.argv[1]
 
 bucket = os.environ.get('GCS_BUCKET')
 project = os.environ.get('GCP_PROJECT_ID')
 dataset = os.environ.get('BIGQUERY_DATASET')
+keyfile = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS', 'gcp-key.json')
 
 
 # [PYTHON] Create Spark session with BigQuery and GCS connectors
@@ -26,23 +25,18 @@ spark = SparkSession.builder \
     .config('spark.hadoop.fs.gs.impl', 'com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem') \
     .config('spark.hadoop.fs.AbstractFileSystem.gs.impl', 'com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS') \
     .config('spark.hadoop.google.cloud.auth.service.account.enable', 'true') \
-    .config('spark.hadoop.google.cloud.auth.service.account.json.keyfile', '/home/jackthompson/DE_ZoomCamp_FinalProject/gcp-key.json') \
+    .config('spark.hadoop.google.cloud.auth.service.account.json.keyfile', keyfile) \
     .getOrCreate()
 
 spark.conf.set('temporaryGcsBucket', bucket)
 
-# [PYSPARK] Read raw games JSON from GCS path: gs://bucket/raw/nba/{execution_date}/games.json
-# [PYSPARK] Read raw player stats JSON from GCS path: gs://bucket/raw/nba/{execution_date}/player_stats.json
+# [PYSPARK] Read raw games JSON from GCS path
+# [PYSPARK] Read raw player stats JSON from GCS path
 
 df_games = spark.read.json(f'gs://{bucket}/raw/nba/{execution_date}/games.json')
 df_stats = spark.read.json(f'gs://{bucket}/raw/nba/{execution_date}/player_stats.json')
 
-# [PYSPARK] Clean games data:
-#   Cast GAME_DATE string to date type
-#   Cast PTS, REB, AST, STL, BLK, TOV to integers
-#   Cast FG_PCT, FG3_PCT, FT_PCT, PLUS_MINUS to floats
-#   Drop rows where GAME_ID is null
-#   Deduplicate on GAME_ID and TEAM_ID
+# [PYSPARK] Clean GAME data:
 
 df_games = df_games \
     .withColumn('GAME_DATE', to_date(col('GAME_DATE'), 'yyyy-MM-dd')) \
@@ -62,12 +56,7 @@ df_games = df_games \
 
 df_games = df_games.toDF(*[c.lower() for c in df_games.columns])
 
-# [PYSPARK] Clean player stats data:
-#   Cast GAME_DATE string to date type
-#   Cast PTS, REB, AST, STL, BLK, TOV, MIN to integers
-#   Cast FG_PCT, FG3_PCT, FT_PCT, PLUS_MINUS to floats
-#   Drop rows where Player_ID is null
-#   Deduplicate on Player_ID and Game_ID
+# [PYSPARK] Clean PLAYER data:
 
 df_stats = df_stats \
     .withColumn('GAME_DATE', to_date(col('GAME_DATE'), 'MMM dd, yyyy')) \
@@ -88,13 +77,11 @@ df_stats = df_stats \
 df_stats = df_stats.toDF(*[c.lower() for c in df_stats.columns])
 
 # [PYTHON] Add metadata column: ingestion_date = execution_date to both DataFrames
-# FIX: Wrapped in to_date() so BigQuery receives a DATE type, not a plain string
 
 df_games = df_games.withColumn('ingestion_date', to_date(lit(execution_date), 'yyyy-MM-dd'))
 df_stats = df_stats.withColumn('ingestion_date', to_date(lit(execution_date), 'yyyy-MM-dd'))
 
 # [PYSPARK] Select only the columns defined in the BigQuery game_stats table
-# FIX: Drops any extra columns the NBA API returned that aren't in our BigQuery schema
 
 df_games = df_games.select(
     'season_id', 'team_id', 'team_abbreviation', 'team_name',
@@ -108,7 +95,6 @@ df_games = df_games.select(
 )
 
 # [PYSPARK] Select only the columns defined in the BigQuery player_stats table
-# FIX: Drops any extra columns the NBA API returned that aren't in our BigQuery schema
 
 df_stats = df_stats.select(
     'season_id', 'player_id', 'player_name', 'game_id', 'game_date',
@@ -133,9 +119,6 @@ df_stats.write.partitionBy('game_date') \
     .parquet(f'gs://{bucket}/processed/nba/{execution_date}/player_stats/')
 
 # [SPARK SQL] Load games Parquet to BigQuery table: nba_analytics.game_stats
-#   Use WRITE_APPEND mode
-#   Partition BigQuery table by GAME_DATE
-#   Cluster by TEAM_ABBREVIATION
 
 df_games.write.format('bigquery') \
     .option('table', f'{project}.{dataset}.game_stats') \
@@ -146,9 +129,6 @@ df_games.write.format('bigquery') \
     .save()
 
 # [SPARK SQL] Load player stats Parquet to BigQuery table: nba_analytics.player_stats
-#   Use WRITE_APPEND mode
-#   Partition BigQuery table by GAME_DATE
-#   Cluster by Player_ID
 
 df_stats.write.format('bigquery') \
     .option('table', f'{project}.{dataset}.player_stats') \

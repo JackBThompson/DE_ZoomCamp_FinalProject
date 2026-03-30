@@ -11,7 +11,10 @@ from time import sleep
  
 os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = 'gcp-key.json'
  
-BUCKET = 'nba-pipeline-jaitfrey-03-26'
+# Read bucket from environment variable — set in .env or export before running
+BUCKET = os.environ.get('GCS_BUCKET')
+if not BUCKET:
+    raise ValueError("GCS_BUCKET environment variable is not set. Run: export GCS_BUCKET=your-bucket-name")
 execution_date = '2025-04-13'
  
 def upload_to_gcs(bucket_name, destination, data):

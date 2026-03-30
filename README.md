@@ -2,9 +2,13 @@
 
 ## Problem Description
 
-NBA fans, analysts, and fantasy sports players have no easy way to track how player performance and game trends evolve across a full season. This pipeline solves that by ingesting NBA game and player data, transforming it with PySpark, and surfacing it in a Looker Studio dashboard.
+NBA fans, analysts, and fantasy sports players can look up a singular player's performance on ESPN. Yet, there is no practical method of comparing multiple player's performance at once and visualizing how multiple player performances evolve over the course of a full season. This pipeline solves this problem by ingesting NBA game and player data from NBA API, transforming it with PySpark, and surfacing player performance trends in a Looker Studio dashboard.
 
-The project covers the full data engineering stack: raw JSON landing in GCS, batch transformation with Spark, partitioned and clustered tables in BigQuery, and a live dashboard built on top of SQL views.
+The project covers the full ETL pipeline:
+
+**Extract** raw data in JSON format from NBA API
+**Transform** data using Spark batch transformation 
+**Load** data into BigQuery using SQL (partitioned and clustered tables). BigQuery naturally connects to Looker Studio, which allows us to build interactive dashboards of player performance trends. 
 
 ---
 
@@ -41,12 +45,11 @@ NBA API
 - [Terraform](https://developer.hashicorp.com/terraform/install)
 - Docker + Docker Compose
 - Python 3.10+
-- GCP account with billing enabled
+- Free GCP account
 
 No NBA API key required — `nba_api` is a free library with no authentication.
 
 ---
-
 ## Setup Instructions
 
 ### 1. Clone the repo
@@ -60,39 +63,73 @@ cd DE_ZoomCamp_FinalProject
 pip install -r requirements.txt
 ```
 
-### 3. Set environment variables
+### 3. Install Spark 3.5.1
+> **Important:** Use Spark 3.5.1 specifically. Later versions use Scala 2.13 which is incompatible with the BigQuery connector.
 ```bash
-cp .env.example .env
-# Open .env and fill in your GCP values:
-# GCS_BUCKET, GCP_PROJECT_ID, BIGQUERY_DATASET
+wget https://archive.apache.org/dist/spark/spark-3.5.1/spark-3.5.1-bin-hadoop3.tgz
+tar -xzf spark-3.5.1-bin-hadoop3.tgz
+export SPARK_HOME=$HOME/spark-3.5.1-bin-hadoop3
+export PATH=$SPARK_HOME/bin:$PATH
 ```
 
-### 4. Authenticate with GCP
+### 4. Download the GCS connector JAR
+```bash
+wget https://storage.googleapis.com/hadoop-lib/gcs/gcs-connector-hadoop3-latest.jar -P ~/
+```
+
+### 5. Add your GCP service account key
+Place your GCP service account key file at the project root:
+```
+DE_ZoomCamp_FinalProject/gcp-key.json
+```
+To create a key: GCP Console → IAM → Service Accounts → your service account → Keys → Add Key → JSON.
+
+### 6. Set environment variables
+```bash
+cp .env.example .env
+# Open .env and fill in your values:
+# GCS_BUCKET=your-bucket-name
+# GCP_PROJECT_ID=your-gcp-project-id
+# BIGQUERY_DATASET=nba_analytics
+```
+
+### 7. Authenticate with GCP
 ```bash
 gcloud auth login
 gcloud auth application-default login
 gcloud config set project YOUR_PROJECT_ID
 ```
 
-### 5. Provision infrastructure (Terraform)
+### 8. Provision infrastructure (Terraform)
 ```bash
-bash scripts/setup_gcp.sh
+cd terraform/
+terraform init
+terraform apply -auto-approve
+cd ..
 ```
+This creates the GCS bucket, BigQuery dataset, Airflow VM, and service account with IAM roles.
 
-### 6. Create BigQuery tables
+### 9. Create BigQuery tables
 ```bash
 bq query --use_legacy_sql=false < sql/analytics_models.sql
 ```
 
-### 7. Ingest raw data locally
+### 10. Ingest raw data locally
 > **Important:** NBA.com actively blocks requests from GCP, AWS, and all major cloud providers. Ingestion must be run from your local machine.
 
+Make sure your `.env` is filled in with `GCS_BUCKET`, then run:
 ```bash
+export $(cat .env | xargs)
 python3 scripts/ingest_local.py
 ```
 This fetches full 2024-25 season game and player data for 10 NBA stars and uploads raw JSON directly to GCS.
 
-### 8. Start Airflow on the VM
+### 11. Start Airflow on the VM
+> ```
+> ${HOME}/DE_ZoomCamp_FinalProject/airflow/dags:/opt/airflow/dags
+> ${HOME}/DE_ZoomCamp_FinalProject/gcp-key.json:/opt/airflow/gcp-key.json
+> ```
+
 ```bash
 gcloud compute ssh airflow-vm --zone=us-east4-a
 cd ~/DE_ZoomCamp_FinalProject
@@ -100,23 +137,28 @@ docker-compose -f docker/docker-compose.yml up -d
 ```
 Airflow UI is available at `http://localhost:8080` after startup.
 
-### 9. Run the Spark transformation
+### 12. Run the Spark transformation
 ```bash
+export GCS_BUCKET=your-bucket-name
+export GCP_PROJECT_ID=your-gcp-project-id
+export BIGQUERY_DATASET=nba_analytics
+
 spark-submit \
   --packages com.google.cloud.spark:spark-bigquery-with-dependencies_2.12:0.36.1 \
-  --jars /home/jackthompson/gcs-connector-hadoop3-latest.jar \
+  --jars ~/gcs-connector-hadoop3-latest.jar \
   --conf spark.hadoop.fs.gs.impl=com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem \
   --conf spark.hadoop.fs.AbstractFileSystem.gs.impl=com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS \
   --conf spark.hadoop.google.cloud.auth.service.account.enable=true \
-  --conf spark.hadoop.google.cloud.auth.service.account.json.keyfile=/home/jackthompson/DE_ZoomCamp_FinalProject/gcp-key.json \
+  --conf spark.hadoop.google.cloud.auth.service.account.json.keyfile=$(pwd)/gcp-key.json \
   spark/transform.py 2025-04-13
 ```
 
-### 10. Verify data landed in BigQuery
+### 13. Verify data landed in BigQuery
 ```sql
 SELECT COUNT(*) FROM `nba_analytics.game_stats`;
 SELECT COUNT(*) FROM `nba_analytics.player_stats`;
 ```
+
 
 ---
 
