@@ -53,8 +53,8 @@ No NBA API key required — `nba_api` is a free library with no authentication.
 
 ## Setup Instructions
 
-> All steps run locally on your terminal. Step 12 requires SSHing into the GCP VM to start Airflow, but the command is run from your local terminal.
-> If you run into any problems reproducing, shoot me an email etl.jackt@gmail.com and I'll help troubleshoot. 
+> All steps run locally on your terminal. Step 11 requires SSHing into the GCP VM to start Airflow, but the SSH command is run from your local terminal.
+> If you run into any problems reproducing, shoot me an email at **etl.jackt@gmail.com** and I'll help troubleshoot.
 
 ### 1. Clone the repo
 ```bash
@@ -103,18 +103,18 @@ wget https://storage.googleapis.com/hadoop-lib/gcs/gcs-connector-hadoop3-latest.
 ```
 
 ### 5. Create a GCP project and service account
-1. Go to [console.cloud.google.com](https://console.cloud.google.com) and create a new project UNDER NO ORGANIZATION. (toggle projects > select a resource > No Organization )
+1. Go to [console.cloud.google.com](https://console.cloud.google.com) and create a new project under 'No Organization' (toggle Projects → Select a resource → No Organization)
 2. Enable billing on the project — required to use GCS, BigQuery, and GCE. **GCP offers a $300 free credit** for new accounts which covers this project entirely.
 3. Go to **IAM → Service Accounts → Create Service Account**
-4. Manage Permissions of Service Account, add: BigQuery Admin, Storage Admin, Compute Admin, Service Account Admin, Project IAM Admin
+4. Add the following roles: BigQuery Admin, Storage Admin, Compute Admin, Service Account Admin, Project IAM Admin
 5. Go to **Keys → Add Key → JSON** and download the key file
-6. Place the key file at the project root and rename it: gcp-key.json
+6. Place the key file at the project root and rename it `gcp-key.json`:
 ```
 DE_ZoomCamp_FinalProject/gcp-key.json
 ```
-> **Note:** Do NOT commit `gcp-key.json` to git. It is in `.gitignore` for this reason.
+> **Note:** Do NOT commit `gcp-key.json` to git — it is in `.gitignore` for this reason.
 >
-> **Note:** Do NOT create a GCS bucket or BigQuery dataset manually — these will be created automatically in Step 8 via Terraform.
+> **Note:** Do NOT create a GCS bucket or BigQuery dataset manually — these will be created automatically in Step 7 via Terraform.
 
 ### 6. Authenticate with GCP
 ```bash
@@ -131,20 +131,22 @@ terraform init
 terraform apply
 cd ..
 ```
-Terraform will prompt you for two values:
+
+Terraform will prompt you for three values:
 - `project_id` — your GCP project ID from Step 5
 - `bucket_name` — a globally unique name for your GCS bucket (e.g. `nba-pipeline-yourname-2025`)
+- `region` — the GCP region closest to you (e.g. `us-east4`, `us-central1`, `europe-west1`)
 
-This creates the GCS bucket, BigQuery dataset, Airflow VM, and service account with IAM roles. Note the bucket name you enter — you will need it in the next step.
+This creates the GCS bucket, BigQuery dataset, Airflow VM, and service account with IAM roles. Note the bucket name and region you enter — you will need both in the next steps.
 
 ### 8. Set environment variables
-> **Note:** `.env` is not committed to the repo for security reasons. Create your own by copying the example file and filling in the values from your GCP project and Step 8 Terraform output.
+> **Note:** `.env` is not committed to the repo for security reasons. Create your own by copying the example file and filling in the values from your GCP project and Step 7 Terraform output.
 
 ```bash
 cp .env.example .env
 # Open .env and fill in:
-# GCS_BUCKET=your-gcs-bucket-name        ← from terraform output
-# GCP_PROJECT_ID=your-gcp-project-id     ← your GCP project ID
+# GCS_BUCKET=your-gcs-bucket-name        ← bucket name you entered in Step 7
+# GCP_PROJECT_ID=your-gcp-project-id     ← your GCP project ID from Step 5
 # BIGQUERY_DATASET=nba_analytics          ← leave as is
 ```
 
@@ -161,7 +163,7 @@ echo $GCP_PROJECT_ID
 
 ### 9. Create BigQuery tables
 ```bash
-bq query --use_legacy_sql=false < bigquery/analytics_models.sql
+bq query --use_legacy_sql=false < BigQuerySQL/dashboard_views.sql
 ```
 
 ### 10. Ingest raw data locally
@@ -173,12 +175,25 @@ python3 scripts/ingest_local.py
 This fetches full 2024-25 season game and player data for 10 NBA stars and uploads raw JSON directly to GCS.
 
 ### 11. Start Airflow on the VM
-SSH into the VM provisioned by Terraform:
+> **Note:** Replace `us-east4-a` with the region you entered in Step 7 followed by `-a` (e.g. if you entered `us-central1`, use `us-central1-a`).
+
+First copy your service account key to the VM:
+```bash
+gcloud compute scp gcp-key.json airflow-vm:~/gcp-key.json --zone=us-east4-a
+```
+
+Then SSH in, clone the repo, move the key, and start Airflow:
 ```bash
 gcloud compute ssh airflow-vm --zone=us-east4-a
-cd ~/DE_ZoomCamp_FinalProject
+git clone https://github.com/JackBThompson/DE_ZoomCamp_FinalProject.git
+cd DE_ZoomCamp_FinalProject
+mv ~/gcp-key.json .
+cp .env.example .env
+# Fill in .env with your GCP values, then load them:
+export $(grep -v '^#' .env | xargs)
 docker-compose -f docker/docker-compose.yml up -d
 ```
+
 Airflow UI is available at `http://localhost:8080` after startup.
 
 ### 12. Run the Spark transformation
@@ -201,7 +216,6 @@ spark-submit \
 bq query --use_legacy_sql=false 'SELECT COUNT(*) FROM `nba_analytics.game_stats`'
 bq query --use_legacy_sql=false 'SELECT COUNT(*) FROM `nba_analytics.player_stats`'
 ```
-
 ---
 
 ## Why Tables Are Partitioned and Clustered
