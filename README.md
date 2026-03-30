@@ -4,11 +4,11 @@
 
 NBA fans, analysts, and fantasy sports players can look up a singular player's performance on ESPN. Yet, there is no practical method of comparing multiple player's performance at once and visualizing how multiple player performances evolve over the course of a full season. This pipeline solves this problem by ingesting NBA game and player data from NBA API, transforming it with PySpark, and surfacing player performance trends in a Looker Studio dashboard.
 
-The project covers the full ETL pipeline:
+The project implements a full ETL pipeline:
 
-**Extract** raw data in JSON format from NBA API
-**Transform** data using Spark batch transformation 
-**Load** data into BigQuery using SQL (partitioned and clustered tables). BigQuery naturally connects to Looker Studio, which allows us to build interactive dashboards of player performance trends. 
+**Extract** — raw game and player stats pulled from the NBA API and landed as JSON in Google Cloud Storage
+**Transform** — PySpark batch job cleans, casts, deduplicates, and writes processed data to BigQuery
+**Load** — partitioned and clustered BigQuery tables feed SQL views that power the Looker Studio dashboard
 
 ---
 
@@ -65,14 +65,35 @@ pip install -r requirements.txt
 
 ### 3. Install Spark 3.5.1
 > **Important:** Use Spark 3.5.1 specifically. Later versions use Scala 2.13 which is incompatible with the BigQuery connector.
+
+**Mac:**
+```bash
+curl -O https://archive.apache.org/dist/spark/spark-3.5.1/spark-3.5.1-bin-hadoop3.tgz
+tar -xzf spark-3.5.1-bin-hadoop3.tgz
+```
+
+**Linux:**
 ```bash
 wget https://archive.apache.org/dist/spark/spark-3.5.1/spark-3.5.1-bin-hadoop3.tgz
 tar -xzf spark-3.5.1-bin-hadoop3.tgz
-export SPARK_HOME=$HOME/spark-3.5.1-bin-hadoop3
-export PATH=$SPARK_HOME/bin:$PATH
 ```
 
+Then add to `~/.zshrc` (Mac) or `~/.bashrc` (Linux) to make permanent:
+```bash
+echo 'export SPARK_HOME=$HOME/spark-3.5.1-bin-hadoop3' >> ~/.zshrc
+echo 'export PATH=$SPARK_HOME/bin:$PATH' >> ~/.zshrc
+source ~/.zshrc
+```
+
+
 ### 4. Download the GCS connector JAR
+**Mac:**
+```bash
+curl -O https://storage.googleapis.com/hadoop-lib/gcs/gcs-connector-hadoop3-latest.jar
+mv gcs-connector-hadoop3-latest.jar ~/
+```
+
+**Linux:**
 ```bash
 wget https://storage.googleapis.com/hadoop-lib/gcs/gcs-connector-hadoop3-latest.jar -P ~/
 ```
