@@ -54,6 +54,7 @@ No NBA API key required — `nba_api` is a free library with no authentication.
 ## Setup Instructions
 
 > All steps run locally on your terminal. Step 12 requires SSHing into the GCP VM to start Airflow, but the command is run from your local terminal.
+> If you run into any problems reproducing, shoot me an email etl.jackt@gmail.com and I'll help troubleshoot. 
 
 ### 1. Clone the repo
 ```bash
@@ -102,16 +103,16 @@ wget https://storage.googleapis.com/hadoop-lib/gcs/gcs-connector-hadoop3-latest.
 ```
 
 ### 5. Create a GCP project and service account
-1. Go to [console.cloud.google.com](https://console.cloud.google.com) and create a new project
+1. Go to [console.cloud.google.com](https://console.cloud.google.com) and create a new project UNDER NO ORGANIZATION. (toggle projects > select a resource > No Organization )
 2. Enable billing on the project — required to use GCS, BigQuery, and GCE. **GCP offers a $300 free credit** for new accounts which covers this project entirely.
 3. Go to **IAM → Service Accounts → Create Service Account**
-4. Grant the following roles: BigQuery Admin, Storage Admin, Compute Admin
+4. Manage Permissions of Service Account, add: BigQuery Admin, Storage Admin, Compute Admin, Service Account Admin, Project IAM Admin
 5. Go to **Keys → Add Key → JSON** and download the key file
-6. Place the key file at the project root and rename it:
+6. Place the key file at the project root and rename it: gcp-key.json
 ```
 DE_ZoomCamp_FinalProject/gcp-key.json
 ```
-> **Note:** Do NOT commit `gcp-key.json` to git — it is already in `.gitignore`
+> **Note:** Do NOT commit `gcp-key.json` to git. It is in `.gitignore` for this reason.
 >
 > **Note:** Do NOT create a GCS bucket or BigQuery dataset manually — these will be created automatically in Step 8 via Terraform.
 
@@ -121,6 +122,7 @@ gcloud auth login
 gcloud auth application-default login
 gcloud config set project YOUR_PROJECT_ID
 ```
+> Replace `YOUR_PROJECT_ID` with your GCP project ID from Step 5 (e.g. `my-nba-project-123`).
 
 ### 7. Provision infrastructure (Terraform)
 ```bash
@@ -159,7 +161,7 @@ echo $GCP_PROJECT_ID
 
 ### 9. Create BigQuery tables
 ```bash
-bq query --use_legacy_sql=false < sql/analytics_models.sql
+bq query --use_legacy_sql=false < bigquery/analytics_models.sql
 ```
 
 ### 10. Ingest raw data locally
@@ -220,8 +222,8 @@ Built on two tiles:
 - **Top Scorers by Average Points** — categorical bar chart ranking 10 NBA stars by avg points per game across the 2024-25 season
 - **Player Performance Over Time** — time series showing average points per player per month across the 2024-25 season
 
-To recreate the dashboard, follow `dashboard/looker_setup.md`.
-
+To recreate the dashboard, follow `lookerDashboard/looker_setup.md`.
+To view screenshots, refer to `lookerDashboard/screenshots`
 ---
 
 ## Known Limitations
