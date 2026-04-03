@@ -2,7 +2,7 @@
 
 ## Problem Description
 
-NBA fans, analysts, and fantasy sports players can look up a singular player's performance on ESPN. Yet, there is no practical method of comparing multiple players' performance at once and visualizing how multiple player performances evolve over the course of a full season. This pipeline solves this problem by ingesting NBA game and player data from the NBA API, transforming it with PySpark, and surfacing player performance trends in a Looker Studio dashboard.
+NBA fans, analysts, and fantasy sports players can look up a singular player's performance on ESPN. Yet, there is no practical method of comparing multiple players' performance at once and visualizing how multiple player performances evolve over the course of a full season. This pipeline solves this problem by ingesting NBA game and player data from the NBA API, transforming it with PySpark, and developing SQL views on the cloud to surface player performance trends in a Looker Studio dashboard.
 
 The project implements a full ETL pipeline:
 
@@ -17,11 +17,42 @@ The project implements a full ETL pipeline:
 ```
 NBA API
   → Airflow DAG (orchestration)
-  → GCS (raw JSON storage)
+  → Cloud - GCS (raw JSON storage)
   → PySpark (transformation)
-  → BigQuery (warehouse + SQL views)
+  → Cloud - BigQuery (warehouse + SQL views)
   → Looker Studio (dashboard)
 ```
+---
+## Project Structure
+```
+DE_ZOOMCAMP_FINAL/
+├── airflow/
+│   └── dags/
+│       └── nbadata_ingestion.py   # Airflow DAG for batch ingestion
+├── BigQuerySQL/
+│   └── dashboard_views.sql        # BigQuery views for Looker Studio
+├── docker/
+│   ├── docker-compose.yml
+│   └── dockerfile.airflow
+├── lookerDashboard/
+│   ├── screenshots/
+│   │   ├── looker_studio_dashboard.png
+│   │   └── looker_studio_dashboard2.png
+│   └── looker_setup.md
+├── scripts/
+│   └── ingest_local.py            # Local ingestion script
+├── spark/
+│   └── transform.py               # PySpark transformation logic
+├── terraform/
+│   ├── main.tf
+│   ├── outputs.tf
+│   └── variables.tf
+├── tests/
+├── .env.example
+├── requirements.txt
+└── README.md
+```
+
 
 ---
 
@@ -33,7 +64,7 @@ NBA API
 | IaC | Terraform |
 | Workflow Orchestration | Airflow DAG (Docker) |
 | Storage | Google Cloud Storage |
-| Transformations | PySpark |
+| Transformations | Spark - PySpark |
 | Data Warehouse | BigQuery |
 | Dashboard | Looker Studio |
 
@@ -49,6 +80,13 @@ NBA API
 
 No NBA API key required — `nba_api` is a free library with no authentication.
 
+---
+## Why Tables Are Partitioned and Clustered
+
+Both `game_stats` and `player_stats` are partitioned by `game_date` and clustered by `team_abbreviation` / `player_id`.
+
+- **Partitioning** — dashboard queries always filter by date range. Partitioning means BigQuery only scans the relevant days rather than the entire table, reducing query cost by up to 90%.
+- **Clustering** — most filters are team or player specific. Clustering lets BigQuery skip non-matching blocks entirely at no extra cost.
 ---
 
 ## Steps to Reproduce
@@ -216,14 +254,6 @@ spark-submit \
 bq query --use_legacy_sql=false 'SELECT COUNT(*) FROM `nba_analytics.game_stats`'
 bq query --use_legacy_sql=false 'SELECT COUNT(*) FROM `nba_analytics.player_stats`'
 ```
----
-
-## Why Tables Are Partitioned and Clustered
-
-Both `game_stats` and `player_stats` are partitioned by `game_date` and clustered by `team_abbreviation` / `player_id`.
-
-- **Partitioning** — dashboard queries always filter by date range. Partitioning means BigQuery only scans the relevant days rather than the entire table, reducing query cost by up to 90%.
-- **Clustering** — most filters are team or player specific. Clustering lets BigQuery skip non-matching blocks entirely at no extra cost.
 
 ---
 
@@ -239,17 +269,10 @@ Built on two tiles:
 To recreate the dashboard, follow `lookerDashboard/looker_setup.md`.
 To view screenshots, refer to `lookerDashboard/screenshots`
 ---
-
-## Known Limitations
-
-- **NBA.com blocks cloud IPs** — ingestion must run locally via `scripts/ingest_local.py`. This is a documented limitation of `nba_api` affecting GCP, AWS, and Azure since 2020.
-- **Rate limiting** — `sleep(1)` between API calls is required to avoid NBA.com rate limits.
-- **Unofficial API** — `nba_api` wraps undocumented NBA.com endpoints. Data availability depends on NBA.com uptime.
-
-
 - **Cloud:** Google Cloud Platform (GCP)
 - **Data Ingestion:** Airflow DAG (Docker)
 - **Data Warehouse:** BigQuery
 - **Transformations:** PySpark
 - **Dashboard:** Looker Studio
 - **IaC:** Terraform
+---
