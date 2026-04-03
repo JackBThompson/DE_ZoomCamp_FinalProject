@@ -51,7 +51,7 @@ No NBA API key required — `nba_api` is a free library with no authentication.
 
 ---
 
-## Setup Instructions
+## Steps to Reproduce
 
 > All steps to reproduce can be run locally on your terminal. Step 11 requires SSHing into the GCP VM to start Airflow, but the SSH command is run from your local terminal.
 > If you run into any problems reproducing, shoot me an email at **etl.jackt@gmail.com** and I'll help troubleshoot.
