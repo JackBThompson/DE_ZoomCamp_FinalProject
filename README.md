@@ -31,10 +31,10 @@ NBA API
 |---|---|
 | Cloud | GCP |
 | IaC | Terraform |
-| Orchestration | Airflow (Docker) |
+| Workflow Orchestration | Airflow DAG (Docker) |
 | Storage | Google Cloud Storage |
-| Processing | PySpark |
-| Warehouse | BigQuery |
+| Transformations | PySpark |
+| Data Warehouse | BigQuery |
 | Dashboard | Looker Studio |
 
 ---
@@ -245,3 +245,11 @@ To view screenshots, refer to `lookerDashboard/screenshots`
 - **NBA.com blocks cloud IPs** — ingestion must run locally via `scripts/ingest_local.py`. This is a documented limitation of `nba_api` affecting GCP, AWS, and Azure since 2020.
 - **Rate limiting** — `sleep(1)` between API calls is required to avoid NBA.com rate limits.
 - **Unofficial API** — `nba_api` wraps undocumented NBA.com endpoints. Data availability depends on NBA.com uptime.
+
+
+- **Cloud:** Google Cloud Platform (GCP)
+- **Data Ingestion:** Airflow DAG (Docker)
+- **Data Warehouse:** BigQuery
+- **Transformations:** PySpark
+- **Dashboard:** Looker Studio
+- **IaC:** Terraform
