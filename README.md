@@ -92,7 +92,6 @@ Both `game_stats` and `player_stats` are partitioned by `game_date` and clustere
 ## Steps to Reproduce
 
 > All steps to reproduce can be run locally on your terminal. Step 11 requires SSHing into the GCP VM to start Airflow, but the SSH command is run from your local terminal.
-> If you run into any problems reproducing, shoot me an email at **etl.jackt@gmail.com** and I'll help troubleshoot.
 
 ### 1. Clone the repo
 ```bash
